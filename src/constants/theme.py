@@ -27,6 +27,16 @@ DARK_THEME = {
     "background": "#121212",     # Background color for widgets
     "info": "#2196F3",            # Info status
     "accent_pressed": "#3700B3",     # Interactive elements pressed
+    "sidebar_bg": "#1A1A1A",       # Sidebar background
+    "scrollbar": "#3C3C3C",        # Scrollbar color
+    "scrollbar_hover": "#505050",  # Scrollbar hover color
+    "tooltip_bg": "#303030",       # Tooltip background
+    "tooltip_text": "#FFFFFF",     # Tooltip text
+    "selection_bg": "#3700B3AA",   # Selection background
+    "progress_bg": "#252525",      # Progress bar background
+    "disabled": "#666666",         # Disabled element color
+    "header_bg": "#1E1E1E",        # Header background
+    "footer_bg": "#1E1E1E",        # Footer background
 }
 
 LIGHT_THEME = {
@@ -52,6 +62,16 @@ LIGHT_THEME = {
     "background": "#FAFAFA",     # Background color for widgets
     "info": "#2196F3",            # Info status
     "accent_pressed": "#BB86FC",     # Interactive elements pressed
+    "sidebar_bg": "#F5F5F5",       # Sidebar background
+    "scrollbar": "#CCCCCC",        # Scrollbar color
+    "scrollbar_hover": "#AAAAAA",  # Scrollbar hover color
+    "tooltip_bg": "#303030",       # Tooltip background
+    "tooltip_text": "#FFFFFF",     # Tooltip text
+    "selection_bg": "#6200EE44",   # Selection background
+    "progress_bg": "#EEEEEE",      # Progress bar background
+    "disabled": "#CCCCCC",         # Disabled element color
+    "header_bg": "#F0F0F0",        # Header background
+    "footer_bg": "#F0F0F0",        # Footer background
 }
 
 # Get theme based on name
@@ -61,3 +81,4 @@ def get_theme(name):
         return DARK_THEME
     else:
         return LIGHT_THEME
+
