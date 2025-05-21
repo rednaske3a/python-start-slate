@@ -1,73 +1,63 @@
-# Welcome to your Lovable project
 
-## Project info
+# ComfyUI Model Manager
 
-**URL**: https://lovable.dev/projects/e9ae17fe-f76f-495f-82d5-821ab7c49c05
+A streamlined utility for downloading and managing models from Civitai for ComfyUI.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- **Simplified Model Downloads**: Easily download models from Civitai directly into the correct ComfyUI folders
+- **Smart Image Management**: Automatically downloads and sorts model preview images by reaction score
+- **HTML Gallery Generation**: Creates attractive HTML galleries for each downloaded model
+- **Queue System**: Manage multiple downloads with priority control
+- **Configurable**: Customize download behavior, concurrent downloads, and more
 
-**Use Lovable**
+## Installation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e9ae17fe-f76f-495f-82d5-821ab7c49c05) and start prompting.
+1. Clone or download this repository
+2. Run the installer:
+```
+python install.py
+```
+3. Follow the prompts to specify your ComfyUI installation path
 
-Changes made via Lovable will be committed automatically to this repo.
+## Usage
 
-**Use your preferred IDE**
+### Running the Application
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+Launch the application by running:
+```
+python path/to/comfyui/custom_nodes/ComfyUI-MM/main.py
 ```
 
-**Edit a file directly in GitHub**
+### Downloading Models
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. Copy model URLs from Civitai (e.g., `https://civitai.com/models/12345/model-name`)
+2. Paste URLs into the download tab (one per line)
+3. Set the maximum number of images to download
+4. Click "Add to Queue"
 
-**Use GitHub Codespaces**
+### Configuration
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+In the Settings tab, you can configure:
+- ComfyUI installation path
+- Download concurrency and threading
+- Model file and image download options
+- HTML gallery creation
+- API key for accessing restricted content
 
-## What technologies are used for this project?
+## Generated HTML Galleries
 
-This project is built with:
+For each downloaded model, a standalone HTML gallery is created that:
+- Displays model information and metadata
+- Shows preview images sorted by popularity
+- Provides prompt information for each image
+- Works offline (all content is local)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## License
 
-## How can I deploy this project?
+MIT License
 
-Simply open [Lovable](https://lovable.dev/projects/e9ae17fe-f76f-495f-82d5-821ab7c49c05) and click on Share -> Publish.
+## Acknowledgments
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- ComfyUI team for the amazing Stable Diffusion UI
+- Civitai for hosting the model community
