@@ -1,338 +1,438 @@
-from typing import Dict
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QCheckBox, QComboBox, QGroupBox
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
+    QLineEdit, QComboBox, QCheckBox, QGroupBox, QScrollArea
 )
-from PySide6.QtCore import Signal
-
-from src.constants.constants import BASE_MODELS, MODEL_TYPES
+from PySide6.QtCore import Qt, Signal
+from typing import Dict, List, Optional
 
 class FilterPanel(QWidget):
-    """Panel for filtering models in the gallery"""
+    """Panel with filters for the gallery"""
     
     filter_changed = Signal(dict)
     
     def __init__(self, theme: Dict, parent=None):
         super().__init__(parent)
         self.theme = theme
-        self.filters = {
-            "type": "all",
-            "base_model": "all",
-            "favorite": False,
-            "nsfw": "all",
-            "search": "",
-            "sort": "date"
-        }
+        self.filters = {}
         self.init_ui()
     
     def init_ui(self):
         """Initialize UI components"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: {self.theme['primary']};
+                border: none;
+            }}
+            QScrollBar:vertical {{
+                background: {self.theme['primary']};
+                width: 14px;
+                margin: 0px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {self.theme['secondary']};
+                min-height: 20px;
+                border-radius: 7px;
+                margin: 2px;
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                height: 0px;
+            }}
+            QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{
+                height: 0px;
+            }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                background: none;
+            }}
+        """)
+        
+        # Create container widget
+        container = QWidget()
+        scroll.setWidget(container)
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(15, 15, 15, 15)
         
         # Title
         title = QLabel("Filter Models")
-        title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {self.theme['text']};")
-        layout.addWidget(title)
+        title.setStyleSheet(f"""
+            font-size: 16px;
+            font-weight: bold;
+            color: {self.theme['text']};
+            margin-bottom: 10px;
+        """)
+        container_layout.addWidget(title)
         
-        # Search
-        search_layout = QHBoxLayout()
-        search_label = QLabel("Search:")
+        # Search box
+        search_label = QLabel("Search")
         search_label.setStyleSheet(f"color: {self.theme['text']};")
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search by name, tag, or creator...")
+        self.search_input.setPlaceholderText("Search models...")
         self.search_input.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {self.theme['input_bg']};
                 color: {self.theme['text']};
-                border: 1px solid {self.theme['input_border']};
+                border: 1px solid {self.theme['border']};
                 border-radius: 4px;
-                padding: 4px 8px;
+                padding: 6px;
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {self.theme['accent']};
             }}
         """)
         self.search_input.textChanged.connect(self.update_filters)
+        container_layout.addWidget(search_label)
+        container_layout.addWidget(self.search_input)
+        container_layout.addSpacing(15)
         
-        search_layout.addWidget(search_label)
-        search_layout.addWidget(self.search_input)
-        layout.addLayout(search_layout)
-        
-        # Model Type
-        type_group = self.create_styled_group_box("Model Type")
-        type_layout = QVBoxLayout(type_group)
-        
+        # Model type filter
+        type_label = QLabel("Model Type")
+        type_label.setStyleSheet(f"color: {self.theme['text']};")
         self.type_combo = QComboBox()
-        self.type_combo.addItem("All Types", "all")
-        for model_type in MODEL_TYPES.keys():
-            self.type_combo.addItem(model_type, model_type)
-        
         self.type_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {self.theme['input_bg']};
                 color: {self.theme['text']};
-                border: 1px solid {self.theme['input_border']};
+                border: 1px solid {self.theme['border']};
                 border-radius: 4px;
-                padding: 4px 8px;
+                padding: 5px;
+                padding-left: 10px;
+                min-height: 24px;
             }}
             QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 15px;
-                border-left-width: 1px;
-                border-left-color: {self.theme['border']};
-                border-left-style: solid;
+                border: none;
+                width: 24px;
+            }}
+            QComboBox::down-arrow {{
+                image: url(resources/icons/chevron-down.png);
+                width: 16px;
+                height: 16px;
+            }}
+            QComboBox:focus {{
+                border: 1px solid {self.theme['accent']};
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {self.theme['input_bg']};
+                color: {self.theme['text']};
+                border: 1px solid {self.theme['border']};
+                selection-background-color: {self.theme['accent']};
+                selection-color: white;
             }}
         """)
+        self.type_combo.addItem("All Types", "")
         self.type_combo.currentIndexChanged.connect(self.update_filters)
+        container_layout.addWidget(type_label)
+        container_layout.addWidget(self.type_combo)
+        container_layout.addSpacing(15)
         
-        type_layout.addWidget(self.type_combo)
-        layout.addWidget(type_group)
-        
-        # Base Model
-        base_group = self.create_styled_group_box("Base Model")
-        base_layout = QVBoxLayout(base_group)
-        
+        # Base model filter
+        base_label = QLabel("Base Model")
+        base_label.setStyleSheet(f"color: {self.theme['text']};")
         self.base_combo = QComboBox()
-        self.base_combo.addItem("All Base Models", "all")
-        for base_model in BASE_MODELS:
-            self.base_combo.addItem(base_model, base_model)
-        
-        self.base_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {self.theme['input_bg']};
-                color: {self.theme['text']};
-                border: 1px solid {self.theme['input_border']};
-                border-radius: 4px;
-                padding: 4px 8px;
-            }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 15px;
-                border-left-width: 1px;
-                border-left-color: {self.theme['border']};
-                border-left-style: solid;
-            }}
-        """)
+        self.base_combo.setStyleSheet(self.type_combo.styleSheet())
+        self.base_combo.addItem("All Base Models", "")
         self.base_combo.currentIndexChanged.connect(self.update_filters)
+        container_layout.addWidget(base_label)
+        container_layout.addWidget(self.base_combo)
+        container_layout.addSpacing(15)
         
-        base_layout.addWidget(self.base_combo)
-        layout.addWidget(base_group)
-        
-        # Sort By
-        sort_group = self.create_styled_group_box("Sort By")
-        sort_layout = QVBoxLayout(sort_group)
-        
-        self.sort_combo = QComboBox()
-        self.sort_combo.addItem("Date (Newest First)", "date")
-        self.sort_combo.addItem("Name (A-Z)", "name")
-        self.sort_combo.addItem("Size (Largest First)", "size")
-        self.sort_combo.addItem("Type", "type")
-        
-        self.sort_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {self.theme['input_bg']};
-                color: {self.theme['text']};
-                border: 1px solid {self.theme['input_border']};
+        # Checkboxes group
+        options_group = QFrame()
+        options_group.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.theme['card']};
                 border-radius: 4px;
-                padding: 4px 8px;
-            }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 15px;
-                border-left-width: 1px;
-                border-left-color: {self.theme['border']};
-                border-left-style: solid;
+                padding: 5px;
             }}
         """)
-        self.sort_combo.currentIndexChanged.connect(self.update_filters)
-        
-        sort_layout.addWidget(self.sort_combo)
-        layout.addWidget(sort_group)
-        
-        # Additional Filters
-        filter_group = self.create_styled_group_box("Additional Filters")
-        filter_layout = QVBoxLayout(filter_group)
-        
-        # Favorites only
-        self.favorites_check = QCheckBox("Favorites Only")
-        self.favorites_check.setStyleSheet(f"color: {self.theme['text']};")
-        self.favorites_check.stateChanged.connect(self.update_filters)
+        options_layout = QVBoxLayout(options_group)
+        options_layout.setContentsMargins(10, 10, 10, 10)
+        options_layout.setSpacing(10)
         
         # NSFW filter
-        nsfw_layout = QHBoxLayout()
-        nsfw_label = QLabel("NSFW Content:")
-        nsfw_label.setStyleSheet(f"color: {self.theme['text']};")
-        
-        self.nsfw_combo = QComboBox()
-        self.nsfw_combo.addItem("Show All", "all")
-        self.nsfw_combo.addItem("Hide NSFW", "hide")
-        self.nsfw_combo.addItem("NSFW Only", "only")
-        
-        self.nsfw_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {self.theme['input_bg']};
+        self.nsfw_check = QCheckBox("Show NSFW Models")
+        self.nsfw_check.setStyleSheet(f"""
+            QCheckBox {{
                 color: {self.theme['text']};
-                border: 1px solid {self.theme['input_border']};
-                border-radius: 4px;
-                padding: 4px 8px;
+                spacing: 8px;
             }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 15px;
-                border-left-width: 1px;
-                border-left-color: {self.theme['border']};
-                border-left-style: solid;
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border-radius: 2px;
+                border: 1px solid {self.theme['border']};
+            }}
+            QCheckBox::indicator:unchecked {{
+                background-color: {self.theme['input_bg']};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {self.theme['accent']};
+                border: 1px solid {self.theme['accent']};
             }}
         """)
-        self.nsfw_combo.currentIndexChanged.connect(self.update_filters)
+        self.nsfw_check.stateChanged.connect(self.update_filters)
+        options_layout.addWidget(self.nsfw_check)
         
-        nsfw_layout.addWidget(nsfw_label)
-        nsfw_layout.addWidget(self.nsfw_combo)
+        # Favorites filter
+        self.favorites_check = QCheckBox("Show Only Favorites")
+        self.favorites_check.setStyleSheet(self.nsfw_check.styleSheet())
+        self.favorites_check.stateChanged.connect(self.update_filters)
+        options_layout.addWidget(self.favorites_check)
         
-        filter_layout.addWidget(self.favorites_check)
-        filter_layout.addLayout(nsfw_layout)
-        layout.addWidget(filter_group)
+        container_layout.addWidget(options_group)
+        container_layout.addSpacing(15)
         
         # Reset button
-        reset_btn = QPushButton("Reset Filters")
-        reset_btn.setStyleSheet(f"""
+        self.reset_button = QPushButton("Reset Filters")
+        self.reset_button.setStyleSheet(f"""
             QPushButton {{
-                background-color: {self.theme['accent']};
-                color: white;
-                border: none;
-                border-radius: 4px;
+                background-color: {self.theme['secondary']};
+                color: {self.theme['text']};
+                border: 1px solid {self.theme['border']};
                 padding: 8px;
+                border-radius: 4px;
             }}
             QPushButton:hover {{
-                background-color: {self.theme['accent_hover']};
+                background-color: {self.theme['card_hover']};
+                border-color: {self.theme['accent']};
             }}
         """)
-        reset_btn.clicked.connect(self.reset_filters)
-        layout.addWidget(reset_btn)
+        self.reset_button.clicked.connect(self.reset_filters)
+        container_layout.addWidget(self.reset_button)
         
-        layout.addStretch()
+        # Add stretch to bottom
+        container_layout.addStretch(1)
+        
+        # Add scroll area to layout
+        layout.addWidget(scroll)
     
-    def create_styled_group_box(self, title):
-        """Create a styled group box"""
-        group = QGroupBox(title)
-        group.setStyleSheet(f"""
-            QGroupBox {{
-                border: 1px solid {self.theme['border']};
-                border-radius: 8px;
-                margin-top: 1ex;
-                font-weight: bold;
-                color: {self.theme['text']};
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }}
-        """)
-        return group
+    def update_model_types(self, types: List[str]):
+        """Update available model types"""
+        current = self.type_combo.currentText()
+        
+        # Clear and re-add all option
+        self.type_combo.clear()
+        self.type_combo.addItem("All Types", "")
+        
+        # Add model types
+        for model_type in sorted(types):
+            self.type_combo.addItem(model_type, model_type)
+        
+        # Try to restore selection
+        index = self.type_combo.findText(current)
+        if index > 0:
+            self.type_combo.setCurrentIndex(index)
     
-    def set_theme(self, theme):
-        """Update the theme"""
-        self.theme = theme
+    def update_base_models(self, base_models: List[str]):
+        """Update available base models"""
+        current = self.base_combo.currentText()
         
-        # Update UI styles
-        for child in self.findChildren(QLabel):
-            child.setStyleSheet(f"color: {self.theme['text']};")
-            if "Filter Models" in child.text():
-                child.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {self.theme['text']};")
+        # Clear and re-add all option
+        self.base_combo.clear()
+        self.base_combo.addItem("All Base Models", "")
         
-        self.search_input.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {self.theme['input_bg']};
-                color: {self.theme['text']};
-                border: 1px solid {self.theme['input_border']};
-                border-radius: 4px;
-                padding: 4px 8px;
-            }}
-        """)
+        # Add base models
+        for base in sorted(base_models):
+            self.base_combo.addItem(base, base)
         
-        combo_style = f"""
-            QComboBox {{
-                background-color: {self.theme['input_bg']};
-                color: {self.theme['text']};
-                border: 1px solid {self.theme['input_border']};
-                border-radius: 4px;
-                padding: 4px 8px;
-            }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 15px;
-                border-left-width: 1px;
-                border-left-color: {self.theme['border']};
-                border-left-style: solid;
-            }}
-        """
-        
-        self.type_combo.setStyleSheet(combo_style)
-        self.base_combo.setStyleSheet(combo_style)
-        self.sort_combo.setStyleSheet(combo_style)
-        self.nsfw_combo.setStyleSheet(combo_style)
-        
-        self.favorites_check.setStyleSheet(f"color: {self.theme['text']};")
-        
-        # Update reset button
-        for child in self.findChildren(QPushButton):
-            child.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {self.theme['accent']};
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    padding: 8px;
-                }}
-                QPushButton:hover {{
-                    background-color: {self.theme['accent_hover']};
-                }}
-            """)
-        
-        # Update group boxes
-        for child in self.findChildren(QGroupBox):
-            child.setStyleSheet(f"""
-                QGroupBox {{
-                    border: 1px solid {self.theme['border']};
-                    border-radius: 8px;
-                    margin-top: 1ex;
-                    font-weight: bold;
-                    color: {self.theme['text']};
-                }}
-                QGroupBox::title {{
-                    subcontrol-origin: margin;
-                    left: 10px;
-                    padding: 0 5px;
-                }}
-            """)
+        # Try to restore selection
+        index = self.base_combo.findText(current)
+        if index > 0:
+            self.base_combo.setCurrentIndex(index)
     
     def update_filters(self):
-        """Update filters based on UI state"""
-        self.filters["type"] = self.type_combo.currentData()
-        self.filters["base_model"] = self.base_combo.currentData()
-        self.filters["favorite"] = self.favorites_check.isChecked()
-        self.filters["nsfw"] = self.nsfw_combo.currentData()
-        self.filters["search"] = self.search_input.text()
-        self.filters["sort"] = self.sort_combo.currentData()
+        """Update filters and emit signal"""
+        filters = {}
         
-        self.filter_changed.emit(self.filters)
+        # Get search text
+        search_text = self.search_input.text().strip()
+        if search_text:
+            filters["search"] = search_text
+        
+        # Get model type
+        type_index = self.type_combo.currentIndex()
+        if type_index > 0:
+            filters["type"] = self.type_combo.itemData(type_index)
+        
+        # Get base model
+        base_index = self.base_combo.currentIndex()
+        if base_index > 0:
+            filters["base_model"] = self.base_combo.itemData(base_index)
+        
+        # Get NSFW filter
+        filters["nsfw"] = self.nsfw_check.isChecked()
+        
+        # Get favorites filter
+        if self.favorites_check.isChecked():
+            filters["favorite"] = True
+        
+        self.filters = filters
+        self.filter_changed.emit(filters)
     
     def reset_filters(self):
-        """Reset all filters to default values"""
+        """Reset all filters to defaults"""
+        self.search_input.clear()
         self.type_combo.setCurrentIndex(0)
         self.base_combo.setCurrentIndex(0)
+        self.nsfw_check.setChecked(False)
         self.favorites_check.setChecked(False)
-        self.nsfw_combo.setCurrentIndex(0)
-        self.search_input.clear()
-        self.sort_combo.setCurrentIndex(0)
         
         self.update_filters()
     
     def get_filters(self):
         """Get current filters"""
         return self.filters
+    
+    def set_theme(self, theme):
+        """Update theme"""
+        self.theme = theme
+        
+        # Update title style
+        title = self.findChild(QLabel, "", Qt.FindChildrenRecursively)
+        if title and title.text() == "Filter Models":
+            title.setStyleSheet(f"""
+                font-size: 16px;
+                font-weight: bold;
+                color: {self.theme['text']};
+                margin-bottom: 10px;
+            """)
+        
+        # Update search input style
+        self.search_input.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {self.theme['input_bg']};
+                color: {self.theme['text']};
+                border: 1px solid {self.theme['border']};
+                border-radius: 4px;
+                padding: 6px;
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {self.theme['accent']};
+            }}
+        """)
+        
+        # Update combo boxes style
+        combo_style = f"""
+            QComboBox {{
+                background-color: {self.theme['input_bg']};
+                color: {self.theme['text']};
+                border: 1px solid {self.theme['border']};
+                border-radius: 4px;
+                padding: 5px;
+                padding-left: 10px;
+                min-height: 24px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 24px;
+            }}
+            QComboBox::down-arrow {{
+                image: url(resources/icons/chevron-down.png);
+                width: 16px;
+                height: 16px;
+            }}
+            QComboBox:focus {{
+                border: 1px solid {self.theme['accent']};
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {self.theme['input_bg']};
+                color: {self.theme['text']};
+                border: 1px solid {self.theme['border']};
+                selection-background-color: {self.theme['accent']};
+                selection-color: white;
+            }}
+        """
+        self.type_combo.setStyleSheet(combo_style)
+        self.base_combo.setStyleSheet(combo_style)
+        
+        # Update checkboxes style
+        checkbox_style = f"""
+            QCheckBox {{
+                color: {self.theme['text']};
+                spacing: 8px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border-radius: 2px;
+                border: 1px solid {self.theme['border']};
+            }}
+            QCheckBox::indicator:unchecked {{
+                background-color: {self.theme['input_bg']};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {self.theme['accent']};
+                border: 1px solid {self.theme['accent']};
+            }}
+        """
+        self.nsfw_check.setStyleSheet(checkbox_style)
+        self.favorites_check.setStyleSheet(checkbox_style)
+        
+        # Update reset button style
+        self.reset_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.theme['secondary']};
+                color: {self.theme['text']};
+                border: 1px solid {self.theme['border']};
+                padding: 8px;
+                border-radius: 4px;
+            }}
+            QPushButton:hover {{
+                background-color: {self.theme['card_hover']};
+                border-color: {self.theme['accent']};
+            }}
+        """)
+        
+        # Update options group style
+        for frame in self.findChildren(QFrame):
+            if frame.layout() and frame.layout().count() > 0:
+                if isinstance(frame.layout().itemAt(0).widget(), QCheckBox):
+                    frame.setStyleSheet(f"""
+                        QFrame {{
+                            background-color: {self.theme['card']};
+                            border-radius: 4px;
+                            padding: 5px;
+                        }}
+                    """)
+        
+        # Update scroll area style
+        scroll = self.findChild(QScrollArea)
+        if scroll:
+            scroll.setStyleSheet(f"""
+                QScrollArea {{
+                    background-color: {self.theme['primary']};
+                    border: none;
+                }}
+                QScrollBar:vertical {{
+                    background: {self.theme['primary']};
+                    width: 14px;
+                    margin: 0px;
+                }}
+                QScrollBar::handle:vertical {{
+                    background: {self.theme['secondary']};
+                    min-height: 20px;
+                    border-radius: 7px;
+                    margin: 2px;
+                }}
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                    height: 0px;
+                }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{
+                    height: 0px;
+                }}
+                QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                    background: none;
+                }}
+            """)
+        
+        # Update label styles
+        for label in self.findChildren(QLabel):
+            if label.text() != "Filter Models":
+                label.setStyleSheet(f"color: {self.theme['text']};")

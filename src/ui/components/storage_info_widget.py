@@ -1,13 +1,15 @@
-from typing import Dict
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QProgressBar, QGroupBox
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar
 )
+from PySide6.QtCore import Qt
+from typing import Dict
 
 from src.utils.formatting import format_size
 
+
 class StorageInfoWidget(QWidget):
-    """Compact widget for displaying storage info in the gallery tab"""
+    """Widget for displaying storage usage information"""
     
     def __init__(self, theme: Dict, parent=None):
         super().__init__(parent)
@@ -18,168 +20,139 @@ class StorageInfoWidget(QWidget):
         """Initialize UI components"""
         layout = QVBoxLayout(self)
         
-        # Storage usage bar
-        storage_group = self.create_styled_group_box("Disk Space")
-        storage_layout = QVBoxLayout(storage_group)
+        # Storage usage title
+        title = QLabel("Storage Usage")
+        title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {self.theme['text']};")
+        layout.addWidget(title)
         
-        # Usage bar
+        # Storage usage bar
+        self.usage_layout = QVBoxLayout()
         self.usage_bar = QProgressBar()
+        self.usage_bar.setRange(0, 100)
+        self.usage_bar.setValue(0)
         self.usage_bar.setTextVisible(True)
         self.usage_bar.setStyleSheet(f"""
             QProgressBar {{
                 border: 1px solid {self.theme['border']};
-                border-radius: 5px;
-                text-align: center;
-                height: 20px;
+                border-radius: 4px;
+                background-color: {self.theme['secondary']};
                 color: {self.theme['text']};
-                background-color: {self.theme['input_bg']};
+                text-align: center;
+                height: 24px;
             }}
             QProgressBar::chunk {{
                 background-color: {self.theme['accent']};
-                border-radius: 4px;
+                border-radius: 3px;
             }}
         """)
         
-        # Usage text
-        self.usage_text = QLabel("Loading storage information...")
-        self.usage_text.setStyleSheet(f"color: {self.theme['text']};")
+        self.usage_label = QLabel("0 B / 0 B (0%)")
+        self.usage_label.setStyleSheet(f"color: {self.theme['text']};")
+        self.usage_layout.addWidget(self.usage_bar)
+        self.usage_layout.addWidget(self.usage_label)
         
-        storage_layout.addWidget(self.usage_bar)
-        storage_layout.addWidget(self.usage_text)
+        layout.addLayout(self.usage_layout)
         
-        layout.addWidget(storage_group)
+        # Model type breakdown
+        self.breakdown_title = QLabel("Model Type Breakdown")
+        self.breakdown_title.setStyleSheet(f"font-size: 14px; font-weight: bold; margin-top: 16px; color: {self.theme['text']};")
+        layout.addWidget(self.breakdown_title)
         
-        # Category breakdown
-        model_group = self.create_styled_group_box("Model Types")
-        model_layout = QVBoxLayout(model_group)
+        # Breakdown list
+        self.breakdown_layout = QVBoxLayout()
+        layout.addLayout(self.breakdown_layout)
         
-        # Category bars
-        self.category_bars = {}
-        for category, color in [
-            ("Checkpoints", "#ed7d31"),
-            ("LoRAs", "#5b9bd5"),
-            ("Embeddings", "#70ad47")
-        ]:
-            cat_bar = QProgressBar()
-            cat_bar.setFormat(f"{category}: %p% (0 MB)")
-            cat_bar.setTextVisible(True)
-            cat_bar.setStyleSheet(f"""
-                QProgressBar {{
-                    border: 1px solid {self.theme['border']};
-                    border-radius: 4px;
-                    text-align: center;
-                    height: 16px;
-                    color: {self.theme['text']};
-                    background-color: {self.theme['input_bg']};
-                    margin-bottom: 5px;
-                }}
-                QProgressBar::chunk {{
-                    background-color: {color};
-                    border-radius: 3px;
-                }}
-            """)
-            
-            model_layout.addWidget(cat_bar)
-            self.category_bars[category] = cat_bar
+        # Set margins
+        layout.setContentsMargins(15, 15, 15, 15)
         
-        layout.addWidget(model_group)
+        # Add stretch to push everything to the top
+        layout.addStretch()
     
-    def create_styled_group_box(self, title):
-        """Create a styled group box"""
-        group = QGroupBox(title)
-        group.setStyleSheet(f"""
-            QGroupBox {{
-                border: 1px solid {self.theme['border']};
-                border-radius: 8px;
-                margin-top: 1ex;
-                font-weight: bold;
-                color: {self.theme['text']};
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }}
-        """)
-        return group
+    def update_usage(self, total_size: int, free_size: int, categories: Dict[str, int]):
+        """Update storage usage information"""
+        # Calculate usage percentage
+        used_size = total_size - free_size
+        if total_size > 0:
+            percentage = (used_size / total_size) * 100
+        else:
+            percentage = 0
+        
+        # Update progress bar
+        self.usage_bar.setValue(int(percentage))
+        
+        # Update usage label
+        self.usage_label.setText(
+            f"{format_size(used_size)} / {format_size(total_size)} ({percentage:.1f}%)"
+        )
+        
+        # Clear breakdown layout
+        while self.breakdown_layout.count():
+            item = self.breakdown_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Add category items
+        for category, size in sorted(categories.items(), key=lambda x: x[1], reverse=True):
+            if size == 0:
+                continue
+                
+            # Create layout for this category
+            item_layout = QHBoxLayout()
+            
+            # Create label with category name
+            name_label = QLabel(category)
+            name_label.setStyleSheet(f"color: {self.theme['text']};")
+            
+            # Create label with size
+            size_label = QLabel(format_size(size))
+            size_label.setStyleSheet(f"color: {self.theme['text_secondary']}; text-align: right;")
+            size_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            
+            # Add to item layout
+            item_layout.addWidget(name_label)
+            item_layout.addWidget(size_label)
+            
+            # Add to breakdown layout
+            self.breakdown_layout.addLayout(item_layout)
     
     def set_theme(self, theme):
-        """Update the theme"""
+        """Update theme"""
         self.theme = theme
         
-        # Update usage bar
+        # Update styles
+        title = self.findChild(QLabel, "", Qt.FindDirectChildrenOnly)
+        if title:
+            title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {self.theme['text']};")
+        
         self.usage_bar.setStyleSheet(f"""
             QProgressBar {{
                 border: 1px solid {self.theme['border']};
-                border-radius: 5px;
-                text-align: center;
-                height: 20px;
+                border-radius: 4px;
+                background-color: {self.theme['secondary']};
                 color: {self.theme['text']};
-                background-color: {self.theme['input_bg']};
+                text-align: center;
+                height: 24px;
             }}
             QProgressBar::chunk {{
                 background-color: {self.theme['accent']};
-                border-radius: 4px;
+                border-radius: 3px;
             }}
         """)
         
-        # Update usage text
-        self.usage_text.setStyleSheet(f"color: {self.theme['text']};")
+        self.usage_label.setStyleSheet(f"color: {self.theme['text']};")
         
-        # Update category bars
-        for category, color in [
-            ("Checkpoints", "#ed7d31"),
-            ("LoRAs", "#5b9bd5"),
-            ("Embeddings", "#70ad47")
-        ]:
-            if category in self.category_bars:
-                self.category_bars[category].setStyleSheet(f"""
-                    QProgressBar {{
-                        border: 1px solid {self.theme['border']};
-                        border-radius: 4px;
-                        text-align: center;
-                        height: 16px;
-                        color: {self.theme['text']};
-                        background-color: {self.theme['input_bg']};
-                        margin-bottom: 5px;
-                    }}
-                    QProgressBar::chunk {{
-                        background-color: {color};
-                        border-radius: 3px;
-                    }}
-                """)
-        
-        # Update group boxes
-        for child in self.findChildren(QGroupBox):
-            child.setStyleSheet(f"""
-                QGroupBox {{
-                    border: 1px solid {self.theme['border']};
-                    border-radius: 8px;
-                    margin-top: 1ex;
-                    font-weight: bold;
-                    color: {self.theme['text']};
-                }}
-                QGroupBox::title {{
-                    subcontrol-origin: margin;
-                    left: 10px;
-                    padding: 0 5px;
-                }}
-            """)
-    
-    def update_usage(self, total_size, free_size, category_sizes):
-        """Update the storage usage display"""
-        used_size = total_size - free_size
-        usage_percent = int((used_size / total_size) * 100) if total_size > 0 else 0
-        
-        self.usage_bar.setValue(usage_percent)
-        self.usage_text.setText(
-            f"Used: {format_size(used_size)} of {format_size(total_size)} "
-            f"({usage_percent}%) - Free: {format_size(free_size)}"
+        self.breakdown_title.setStyleSheet(
+            f"font-size: 14px; font-weight: bold; margin-top: 16px; color: {self.theme['text']};"
         )
         
-        # Update category bars
-        for category, size in category_sizes.items():
-            if category in self.category_bars:
-                percent = int((size / total_size) * 100) if total_size > 0 else 0
-                self.category_bars[category].setValue(percent)
-                self.category_bars[category].setFormat(f"{category}: {percent}% ({format_size(size)})")
+        # Update all category labels
+        for i in range(self.breakdown_layout.count()):
+            layout_item = self.breakdown_layout.itemAt(i)
+            if isinstance(layout_item, QHBoxLayout):
+                for j in range(layout_item.count()):
+                    widget = layout_item.itemAt(j).widget()
+                    if isinstance(widget, QLabel):
+                        if j == 0:  # Name label
+                            widget.setStyleSheet(f"color: {self.theme['text']};")
+                        else:  # Size label
+                            widget.setStyleSheet(f"color: {self.theme['text_secondary']}; text-align: right;")

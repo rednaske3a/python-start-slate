@@ -1,250 +1,286 @@
 
-"""
-Toast notification manager for displaying non-intrusive messages
-"""
-from typing import Dict, List, Optional
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QGraphicsOpacityEffect
+)
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRect
+from PySide6.QtGui import QColor
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRect, QObject
-from PySide6.QtGui import QColor, QPalette, QPainter, QPainterPath, QBrush, QPen
+from typing import Dict, Optional, Callable
 
-class Toast(QWidget):
-    """Individual toast notification widget"""
+class ToastNotification(QWidget):
+    """A single toast notification widget"""
     
-    def __init__(self, message: str, theme: Dict, toast_type: str = "info", 
-                 parent=None, duration: int = 5000, action=None, action_text=None):
-        """
-        Initialize the toast widget
-        
-        Args:
-            message: Message text to display
-            theme: Theme colors dictionary
-            toast_type: Type of toast (info, success, error)
-            parent: Parent widget
-            duration: Display duration in milliseconds
-            action: Action callback function
-            action_text: Action button text
-        """
+    def __init__(self, message: str, type_: str, theme: Dict, 
+                duration: int = 3000, parent=None, 
+                action: Optional[Callable] = None,
+                action_text: Optional[str] = None):
         super().__init__(parent)
-        self.message = message
         self.theme = theme
-        self.toast_type = toast_type
+        self.message = message
+        self.type = type_
         self.duration = duration
-        self.action = action
-        self.action_text = action_text
-        self.init_ui()
+        self.action_callback = action
+        self.action_text = action_text or "Action"
         
-        # Set up auto-hide timer
-        self.timer = QTimer(self)
-        self.timer.setSingleShot(True)
-        self.timer.timeout.connect(self.hide_toast)
-        
-        # Animation
-        self.show_animation = QPropertyAnimation(self, b"geometry")
-        self.show_animation.setDuration(300)
-        self.show_animation.setEasingCurve(QEasingCurve.OutCubic)
-        
-        self.hide_animation = QPropertyAnimation(self, b"geometry")
-        self.hide_animation.setDuration(300)
-        self.hide_animation.setEasingCurve(QEasingCurve.InCubic)
-        self.hide_animation.finished.connect(self.deleteLater)
-    
-    def init_ui(self):
-        """Initialize UI components"""
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        # Set up widget properties
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        
-        # Set minimum/maximum size
         self.setMinimumWidth(300)
         self.setMaximumWidth(400)
         
-        # Create layout
-        layout = QHBoxLayout(self)
+        # Set background color based on type
+        self.background_color = self.get_background_color()
+        
+        # Create opacity effect
+        self.opacity_effect = QGraphicsOpacityEffect()
+        self.opacity_effect.setOpacity(0.0)
+        self.setGraphicsEffect(self.opacity_effect)
+        
+        self.init_ui()
+        self.setup_animations()
+    
+    def init_ui(self):
+        """Initialize UI components"""
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         
-        # Toast message
+        # Message
+        message_layout = QHBoxLayout()
+        message_layout.setSpacing(10)
+        
+        # Icon
+        if self.type == "success":
+            icon = "✓"
+        elif self.type == "error":
+            icon = "✕"
+        elif self.type == "warning":
+            icon = "!"
+        else:
+            icon = "i"
+        
+        icon_label = QLabel(icon)
+        icon_label.setStyleSheet(f"""
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        
+        # Message text
         message_label = QLabel(self.message)
         message_label.setWordWrap(True)
-        message_label.setStyleSheet(f"color: {self.theme['text']}; font-size: 13px;")
+        message_label.setStyleSheet("color: white;")
         
-        layout.addWidget(message_label)
-        layout.addStretch()
+        message_layout.addWidget(icon_label, 0)
+        message_layout.addWidget(message_label, 1)
         
-        # Add action button if provided
-        if self.action and self.action_text:
-            action_btn = QPushButton(self.action_text)
-            action_btn.setStyleSheet(f"""
-                QPushButton {{
-                    background: transparent;
-                    color: {self.theme['accent']};
-                    border: none;
-                    font-weight: bold;
-                    padding: 5px;
-                }}
-                QPushButton:hover {{
-                    text-decoration: underline;
-                }}
-            """)
-            action_btn.clicked.connect(self.action)
-            action_btn.clicked.connect(self.hide_toast)
-            layout.addWidget(action_btn)
-        
-        # Add close button
-        close_btn = QPushButton("×")
-        close_btn.setStyleSheet(f"""
+        # Close button
+        close_button = QPushButton("×")
+        close_button.setFixedSize(20, 20)
+        close_button.setStyleSheet(f"""
             QPushButton {{
-                background: transparent;
-                color: {self.theme['text_secondary']};
+                background-color: transparent;
+                color: white;
                 border: none;
                 font-size: 16px;
                 font-weight: bold;
-                padding: 2px 5px;
             }}
             QPushButton:hover {{
-                color: {self.theme['text']};
+                color: rgba(255, 255, 255, 0.8);
             }}
         """)
-        close_btn.clicked.connect(self.hide_toast)
+        close_button.clicked.connect(self.close_animation)
         
-        layout.addWidget(close_btn)
-    
-    def show_toast(self):
-        """Show toast with animation"""
-        parent = self.parent()
-        if not parent:
-            return
+        message_layout.addWidget(close_button, 0)
         
-        # Position at the top-right corner
-        parent_rect = parent.geometry()
-        self.adjustSize()
+        # Add message layout
+        layout.addLayout(message_layout)
         
-        # Animation values for sliding in from right
-        start_x = parent_rect.width()
-        end_x = parent_rect.width() - self.width() - 20
-        
-        # Set geometry for animation
-        self.setGeometry(start_x, 20, self.width(), self.height())
-        
-        # Show the widget before animation starts
-        self.show()
-        
-        # Configure and start the animation
-        self.show_animation.setStartValue(QRect(start_x, 20, self.width(), self.height()))
-        self.show_animation.setEndValue(QRect(end_x, 20, self.width(), self.height()))
-        self.show_animation.start()
-        
-        # Start the auto-hide timer
-        self.timer.start(self.duration)
-    
-    def hide_toast(self):
-        """Hide toast with animation"""
-        self.timer.stop()
-        
-        parent_rect = self.parentWidget().geometry()
-        end_x = parent_rect.width()
-        
-        # Configure and start the animation
-        self.hide_animation.setStartValue(self.geometry())
-        self.hide_animation.setEndValue(QRect(end_x, self.y(), self.width(), self.height()))
-        self.hide_animation.start()
-    
-    def enterEvent(self, event):
-        """Pause timer when mouse enters"""
-        self.timer.stop()
-        super().enterEvent(event)
-    
-    def leaveEvent(self, event):
-        """Resume timer when mouse leaves"""
-        self.timer.start(self.duration)
-        super().leaveEvent(event)
-    
-    def paintEvent(self, event):
-        """Custom paint event for rounded corners and shadow"""
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        
-        # Create rounded rectangle path
-        path = QPainterPath()
-        rect = self.rect()
-        path.addRoundedRect(rect, 10, 10)
-        
-        # Set background color based on toast type
-        if self.toast_type == "success":
-            bg_color = QColor(self.theme["success"])
-            bg_color.setAlpha(40)  # Semi-transparent
-        elif self.toast_type == "error":
-            bg_color = QColor(self.theme["danger"])
-            bg_color.setAlpha(40)  # Semi-transparent
-        else:  # info or default
-            bg_color = QColor(self.theme["secondary"])
+        # Add action button if provided
+        if self.action_callback:
+            action_layout = QHBoxLayout()
+            action_layout.setContentsMargins(0, 10, 0, 0)
             
-        # Draw rounded background
-        painter.fillPath(path, bg_color)
+            action_button = QPushButton(self.action_text)
+            action_button.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba(255, 255, 255, 0.2);
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 5px 10px;
+                }}
+                QPushButton:hover {{
+                    background-color: rgba(255, 255, 255, 0.3);
+                }}
+            """)
+            action_button.clicked.connect(self.execute_action)
+            
+            action_layout.addStretch()
+            action_layout.addWidget(action_button)
+            
+            layout.addLayout(action_layout)
         
-        # Draw border
-        border_color = QColor(self.theme["border"])
-        painter.setPen(QPen(border_color, 1))
-        painter.drawPath(path)
-
-
-class ToastManager(QObject):
-    """Manager for creating and displaying toast notifications"""
+        # Set widget style
+        self.setStyleSheet(f"""
+            ToastNotification {{
+                background-color: {self.background_color};
+                border-radius: 6px;
+            }}
+        """)
     
-    def __init__(self, parent_widget, theme):
-        """
-        Initialize toast manager
+    def get_background_color(self) -> str:
+        """Get background color based on notification type"""
+        if self.type == "success":
+            return self.theme["success"]
+        elif self.type == "error":
+            return self.theme["danger"]
+        elif self.type == "warning":
+            return self.theme["warning"]
+        else:
+            return self.theme["info"]
+    
+    def setup_animations(self):
+        """Set up fade animations"""
+        # Fade in animation
+        self.fade_in = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.fade_in.setDuration(300)
+        self.fade_in.setStartValue(0.0)
+        self.fade_in.setEndValue(1.0)
+        self.fade_in.setEasingCurve(QEasingCurve.OutCubic)
         
-        Args:
-            parent_widget: Widget to display toasts on
-            theme: Theme colors dictionary
-        """
-        super().__init__(parent_widget)
-        self.parent_widget = parent_widget
+        # Fade out animation
+        self.fade_out = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.fade_out.setDuration(300)
+        self.fade_out.setStartValue(1.0)
+        self.fade_out.setEndValue(0.0)
+        self.fade_out.setEasingCurve(QEasingCurve.OutCubic)
+        self.fade_out.finished.connect(self.close)
+        
+        # Auto close timer
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.setInterval(self.duration)
+        self.timer.timeout.connect(self.close_animation)
+    
+    def show_animation(self):
+        """Show the notification with animation"""
+        self.fade_in.start()
+        self.show()
+        self.timer.start()
+    
+    def close_animation(self):
+        """Close the notification with animation"""
+        self.timer.stop()
+        self.fade_out.start()
+    
+    def execute_action(self):
+        """Execute the action callback"""
+        if self.action_callback:
+            self.action_callback()
+            self.close_animation()
+    
+    def set_theme(self, theme):
+        """Update theme"""
         self.theme = theme
+        self.background_color = self.get_background_color()
+        self.setStyleSheet(f"""
+            ToastNotification {{
+                background-color: {self.background_color};
+                border-radius: 6px;
+            }}
+        """)
+
+
+class ToastManager(QWidget):
+    """Manager for toast notifications"""
+    
+    def __init__(self, parent=None, theme=None):
+        super().__init__(parent)
+        self.theme = theme or {}
+        self.toast_spacing = 10
+        self.toast_margin = 20
         self.active_toasts = []
         
-    def show_toast(self, message, toast_type="info", duration=5000, action=None, action_text=None):
-        """
-        Show a toast notification
+        # Make widget transparent and frameless
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WA_NoSystemBackground)
+        self.setStyleSheet("background: transparent;")
+    
+    def show_toast(self, message: str, type_: str = "info", duration: int = 3000,
+                  action: Optional[Callable] = None, action_text: Optional[str] = None):
+        """Show a toast notification
         
         Args:
-            message: Message text to display
-            toast_type: Type of toast (info, success, error)
-            duration: Display duration in milliseconds
-            action: Action callback function
-            action_text: Action button text
+            message: Message to display
+            type_: Type of notification (info, success, error, warning)
+            duration: Duration in milliseconds
+            action: Optional callback function to execute when action button is clicked
+            action_text: Optional text for the action button
         """
-        # Create new toast
-        toast = Toast(
-            message=message,
-            theme=self.theme,
-            toast_type=toast_type,
-            parent=self.parent_widget,
-            duration=duration,
-            action=action,
-            action_text=action_text
+        # Create toast notification
+        toast = ToastNotification(
+            message, 
+            type_,
+            self.theme,
+            duration,
+            self,
+            action,
+            action_text
         )
-        
-        # Show the toast
-        toast.show_toast()
         
         # Add to active toasts
         self.active_toasts.append(toast)
         
-        # Clean up when toast is destroyed
-        toast.destroyed.connect(lambda: self._remove_toast(toast))
+        # Position the toast
+        self.position_toasts()
         
-    def _remove_toast(self, toast):
-        """Remove toast from active list"""
+        # Show with animation
+        toast.show_animation()
+        
+        # Connect close signal
+        toast.fade_out.finished.connect(lambda: self.remove_toast(toast))
+    
+    def position_toasts(self):
+        """Position all toast notifications"""
+        if not self.parent():
+            return
+            
+        # Get parent size
+        parent_rect = self.parent().rect()
+        
+        # Position toasts from bottom up
+        y = parent_rect.height() - self.toast_margin
+        
+        for toast in reversed(self.active_toasts):
+            # Update toast width
+            toast_width = min(400, parent_rect.width() - 2 * self.toast_margin)
+            toast.setFixedWidth(toast_width)
+            
+            # Calculate toast height
+            toast_height = toast.sizeHint().height()
+            
+            # Position toast
+            x = parent_rect.width() - toast_width - self.toast_margin
+            y -= toast_height + self.toast_spacing
+            
+            # Set position
+            toast.setGeometry(x, y, toast_width, toast_height)
+    
+    def remove_toast(self, toast):
+        """Remove a toast notification"""
         if toast in self.active_toasts:
             self.active_toasts.remove(toast)
-    
-    def clear_all(self):
-        """Clear all active toasts"""
-        for toast in self.active_toasts[:]:  # Work on a copy of the list
-            toast.hide_toast()
+            toast.deleteLater()
+            
+            # Reposition remaining toasts
+            self.position_toasts()
     
     def set_theme(self, theme):
-        """Update theme for the toast manager"""
+        """Update theme"""
         self.theme = theme
+        
+        # Update all active toasts
+        for toast in self.active_toasts:
+            toast.set_theme(theme)
